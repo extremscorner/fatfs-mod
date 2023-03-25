@@ -17,27 +17,27 @@ void systemUserStartup(void)
 
 static Mutex s_fatMutex;
 
-int ff_mutex_create(int vol)
+int ff_mutex_create(FATFS* fs)
 {
-	dietPrint("ff_mutex_create(%d)\n", vol);
+	dietPrint("ff_mutex_create(%p)\n", fs);
 	return 1;
 }
 
-void ff_mutex_delete(int vol)
+void ff_mutex_delete(FATFS* fs)
 {
-	dietPrint("ff_mutex_delete(%d)\n", vol);
+	dietPrint("ff_mutex_delete(%p)\n", fs);
 }
 
-int ff_mutex_take(int vol)
+int ff_mutex_take(FATFS* fs)
 {
-	//dietPrint("ff_mutex_take(%d)\n", vol);
+	//dietPrint("ff_mutex_take(%p)\n", fs);
 	mutexLock(&s_fatMutex);
 	return 1;
 }
 
-void ff_mutex_give(int vol)
+void ff_mutex_give(FATFS* fs)
 {
-	//dietPrint("ff_mutex_give(%d)\n", vol);
+	//dietPrint("ff_mutex_give(%p)\n", fs);
 	mutexUnlock(&s_fatMutex);
 }
 

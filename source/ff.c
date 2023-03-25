@@ -470,7 +470,7 @@ static BYTE CurrVol;				/* Current drive set by f_chdrive() */
 static FILESEM Files[FF_FS_LOCK];	/* Open object lock semaphores */
 #if FF_FS_REENTRANT
 static volatile BYTE SysLock;		/* System lock flag to protect Files[] (0:no mutex, 1:unlocked, 2:locked) */
-static volatile BYTE SysLockVolume;	/* Volume id who is locking Files[] */
+static volatile FATFS* SysLockVolume;	/* Volume id who is locking Files[] */
 #endif
 #endif
 
@@ -900,18 +900,18 @@ static int lock_volume (	/* 1:Ok, 0:timeout */
 
 
 #if FF_FS_LOCK
-	rv = ff_mutex_take(fs->ldrv);	/* Lock the volume */
+	rv = ff_mutex_take(fs);	/* Lock the volume */
 	if (rv && syslock) {			/* System lock reqiered? */
-		rv = ff_mutex_take(FF_VOLUMES);	/* Lock the system */
+		rv = ff_mutex_take(NULL);	/* Lock the system */
 		if (rv) {
-			SysLockVolume = fs->ldrv;
+			SysLockVolume = fs;
 			SysLock = 2;				/* System lock succeeded */
 		} else {
-			ff_mutex_give(fs->ldrv);	/* Failed system lock */
+			ff_mutex_give(fs);	/* Failed system lock */
 		}
 	}
 #else
-	rv = syslock ? ff_mutex_take(fs->ldrv) : ff_mutex_take(fs->ldrv);	/* Lock the volume (this is to prevent compiler warning) */
+	rv = syslock ? ff_mutex_take(fs) : ff_mutex_take(fs);	/* Lock the volume (this is to prevent compiler warning) */
 #endif
 	return rv;
 }
@@ -924,12 +924,12 @@ static void unlock_volume (
 {
 	if (fs && res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_TIMEOUT) {
 #if FF_FS_LOCK
-		if (SysLock == 2 && SysLockVolume == fs->ldrv) {	/* Is the system locked? */
+		if (SysLock == 2 && SysLockVolume == fs) {	/* Is the system locked? */
 			SysLock = 1;
-			ff_mutex_give(FF_VOLUMES);
+			ff_mutex_give(NULL);
 		}
 #endif
-		ff_mutex_give(fs->ldrv);	/* Unlock the volume */
+		ff_mutex_give(fs);	/* Unlock the volume */
 	}
 }
 
@@ -3678,7 +3678,7 @@ FRESULT f_mount (
 		clear_share(cfs);
 #endif
 #if FF_FS_REENTRANT				/* Discard mutex of the current volume */
-		ff_mutex_delete(vol);
+		ff_mutex_delete(fs);
 #endif
 		cfs->fs_type = 0;		/* Invalidate the filesystem object to be unregistered */
 	}
@@ -3686,12 +3686,11 @@ FRESULT f_mount (
 	if (fs) {					/* Register new filesystem object */
 		fs->pdrv = pdrv;		/* Physical drive object */
 #if FF_FS_REENTRANT				/* Create a volume mutex */
-		fs->ldrv = (BYTE)vol;	/* Owner volume ID */
-		if (!ff_mutex_create(vol)) return FR_INT_ERR;
+		if (!ff_mutex_create(fs)) return FR_INT_ERR;
 #if FF_FS_LOCK
 		if (SysLock == 0) {		/* Create a system mutex if needed */
-			if (!ff_mutex_create(FF_VOLUMES)) {
-				ff_mutex_delete(vol);
+			if (!ff_mutex_create(NULL)) {
+				ff_mutex_delete(fs);
 				return FR_INT_ERR;
 			}
 			SysLock = 1;		/* System mutex is ready */

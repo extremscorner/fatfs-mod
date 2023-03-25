@@ -132,7 +132,6 @@ extern const char* VolumeStr[FF_VOLUMES];	/* User defied volume ID */
 typedef struct {
 	void*	pdrv;			/* Physical drive object */
 	BYTE	fs_type;		/* Filesystem type (0:not mounted) */
-	BYTE	ldrv;			/* Logical drive number (used only when FF_FS_REENTRANT) */
 	BYTE	n_fats;			/* Number of FATs (1 or 2) */
 	BYTE	wflag;			/* win[] status (b0:dirty) */
 	BYTE	fsi_flag;		/* FSINFO status (b7:disabled, b0:dirty) */
@@ -372,10 +371,10 @@ void* ff_memalloc (UINT msize);		/* Allocate memory block */
 void ff_memfree (void* mblock);		/* Free memory block */
 #endif
 #if FF_FS_REENTRANT	/* Sync functions */
-int ff_mutex_create (int vol);		/* Create a sync object */
-void ff_mutex_delete (int vol);		/* Delete a sync object */
-int ff_mutex_take (int vol);		/* Lock sync object */
-void ff_mutex_give (int vol);		/* Unlock sync object */
+int ff_mutex_create (FATFS* fs);		/* Create a sync object */
+void ff_mutex_delete (FATFS* fs);		/* Delete a sync object */
+int ff_mutex_take (FATFS* fs);		/* Lock sync object */
+void ff_mutex_give (FATFS* fs);		/* Unlock sync object */
 #endif
 
 
