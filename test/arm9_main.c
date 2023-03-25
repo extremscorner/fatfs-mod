@@ -43,9 +43,9 @@ void ff_mutex_give(int vol)
 
 static BlkDevice s_curDev;
 
-DSTATUS disk_initialize(BYTE pdrv)
+DSTATUS disk_initialize(void* pdrv)
 {
-	dietPrint("disk_initialize(%u)\n", pdrv);
+	dietPrint("disk_initialize\n");
 	if (blkDevInit(BlkDevice_Dldi)) {
 		s_curDev = BlkDevice_Dldi;
 	} else if (blkDevInit(BlkDevice_TwlSdCard)) {
@@ -56,18 +56,18 @@ DSTATUS disk_initialize(BYTE pdrv)
 	return RES_OK;
 }
 
-DSTATUS disk_status(BYTE pdrv)
+DSTATUS disk_status(void* pdrv)
 {
-	//dietPrint("disk_status(%u)\n", pdrv);
+	//dietPrint("disk_status\n");
 	return RES_OK;
 }
 
 #define DISK_BUF_NUM_SECTORS 16
 alignas(ARM_CACHE_LINE_SZ) static u8 s_diskBuf[DISK_BUF_NUM_SECTORS*512];
 
-DRESULT disk_read(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
+DRESULT disk_read(void* pdrv, BYTE* buff, LBA_t sector, UINT count)
 {
-	dietPrint("RD%u %p 0x%lx %u\n", pdrv, buff, sector, count);
+	dietPrint("RD %p 0x%lx %u\n", buff, sector, count);
 
 	while (count) {
 		UINT this_count = count > DISK_BUF_NUM_SECTORS ? DISK_BUF_NUM_SECTORS : count;
@@ -85,9 +85,9 @@ DRESULT disk_read(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 	return RES_OK;
 }
 
-DRESULT disk_write(BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
+DRESULT disk_write(void* pdrv, const BYTE* buff, LBA_t sector, UINT count)
 {
-	dietPrint("WR%u %p 0x%lx %u\n", pdrv, buff, sector, count);
+	dietPrint("WR %p 0x%lx %u\n", buff, sector, count);
 	return RES_WRPRT;
 }
 
@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
 
 	static FATFS fs;
 	FRESULT res;
-	res = f_mount(&fs, "0:/", 1);
+	res = f_mount(&fs, "0:/", NULL, 1);
 	if (res != FR_OK) {
 		dietPrint("f_mount returned %d\n", res);
 	} else {

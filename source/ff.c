@@ -247,10 +247,8 @@
 
 /* Definitions of logical drive - physical location conversion */
 #if FF_MULTI_PARTITION
-#define LD2PD(vol) VolToPart[vol].pd	/* Get physical drive number */
 #define LD2PT(vol) VolToPart[vol].pt	/* Get partition number (0:auto search, 1..:forced partition number) */
 #else
-#define LD2PD(vol) (BYTE)(vol)	/* Each logical drive is associated with the same physical drive number */
 #define LD2PT(vol) 0			/* Auto partition search */
 #endif
 
@@ -3659,6 +3657,7 @@ static FRESULT validate (	/* Returns FR_OK or FR_INVALID_OBJECT */
 FRESULT f_mount (
 	FATFS* fs,			/* Pointer to the filesystem object to be registered (NULL:unmount)*/
 	const TCHAR* path,	/* Logical drive number to be mounted/unmounted */
+	void* pdrv,			/* Physical drive object to be mounted/unmounted */
 	BYTE opt			/* Mount option: 0=Do not mount (delayed mount), 1=Mount immediately */
 )
 {
@@ -3685,7 +3684,7 @@ FRESULT f_mount (
 	}
 
 	if (fs) {					/* Register new filesystem object */
-		fs->pdrv = LD2PD(vol);	/* Volume hosting physical drive */
+		fs->pdrv = pdrv;		/* Physical drive object */
 #if FF_FS_REENTRANT				/* Create a volume mutex */
 		fs->ldrv = (BYTE)vol;	/* Owner volume ID */
 		if (!ff_mutex_create(vol)) return FR_INT_ERR;

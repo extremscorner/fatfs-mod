@@ -130,8 +130,8 @@ extern const char* VolumeStr[FF_VOLUMES];	/* User defied volume ID */
 /* Filesystem object structure (FATFS) */
 
 typedef struct {
+	void*	pdrv;			/* Physical drive object */
 	BYTE	fs_type;		/* Filesystem type (0:not mounted) */
-	BYTE	pdrv;			/* Volume hosting physical drive */
 	BYTE	ldrv;			/* Logical drive number (used only when FF_FS_REENTRANT) */
 	BYTE	n_fats;			/* Number of FATs (1 or 2) */
 	BYTE	wflag;			/* win[] status (b0:dirty) */
@@ -327,7 +327,7 @@ FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);	/* Get volume 
 FRESULT f_setlabel (const TCHAR* label);							/* Set volume label */
 FRESULT f_forward (FFFIL* fp, UINT(*func)(const BYTE*,UINT), UINT btf, UINT* bf);	/* Forward data to the stream */
 FRESULT f_expand (FFFIL* fp, FSIZE_t fsz, BYTE opt);					/* Allocate a contiguous block to the file */
-FRESULT f_mount (FATFS* fs, const TCHAR* path, BYTE opt);			/* Mount/Unmount a logical drive */
+FRESULT f_mount (FATFS* fs, const TCHAR* path, void* pdrv, BYTE opt);			/* Mount/Unmount a logical drive */
 FRESULT f_mkfs (const TCHAR* path, const MKFS_PARM* opt, void* work, UINT len);	/* Create a FAT volume */
 FRESULT f_fdisk (BYTE pdrv, const LBA_t ptbl[], void* work);		/* Divide a physical drive into some partitions */
 FRESULT f_setcp (WORD cp);											/* Set current code page */
