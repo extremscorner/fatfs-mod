@@ -109,24 +109,6 @@ typedef char TCHAR;
 
 
 
-/* Definitions of volume management */
-
-#if FF_MULTI_PARTITION		/* Multiple partition configuration */
-typedef struct {
-	BYTE pd;	/* Physical drive number */
-	BYTE pt;	/* Partition: 0:Auto detect, 1-4:Forced partition) */
-} PARTITION;
-extern PARTITION VolToPart[];	/* Volume - Partition mapping table */
-#endif
-
-#if FF_STR_VOLUME_ID
-#ifndef FF_VOLUME_STRS
-extern const char* VolumeStr[FF_VOLUMES];	/* User defied volume ID */
-#endif
-#endif
-
-
-
 /* Filesystem object structure (FATFS) */
 
 typedef struct {
@@ -300,33 +282,33 @@ typedef enum {
 /* FatFs Module Application Interface                           */
 /*--------------------------------------------------------------*/
 
-FRESULT f_open (FFFIL* fp, const TCHAR* path, BYTE mode);				/* Open or create a file */
+FRESULT f_open (FFFIL* fp, FATFS* fs, const TCHAR* path, BYTE mode);	/* Open or create a file */
 FRESULT f_close (FFFIL* fp);											/* Close an open file object */
 FRESULT f_read (FFFIL* fp, void* buff, UINT btr, UINT* br);			/* Read data from the file */
 FRESULT f_write (FFFIL* fp, const void* buff, UINT btw, UINT* bw);	/* Write data to the file */
 FRESULT f_lseek (FFFIL* fp, FSIZE_t ofs);								/* Move file pointer of the file object */
 FRESULT f_truncate (FFFIL* fp);										/* Truncate the file */
 FRESULT f_sync (FFFIL* fp);											/* Flush cached data of the writing file */
-FRESULT f_opendir (FFDIR* dp, const TCHAR* path);						/* Open a directory */
+FRESULT f_opendir (FFDIR* dp, FATFS* fs, const TCHAR* path);		/* Open a directory */
 FRESULT f_closedir (FFDIR* dp);										/* Close an open directory */
 FRESULT f_readdir (FFDIR* dp, FILINFO* fno);							/* Read a directory item */
 FRESULT f_findfirst (FFDIR* dp, FILINFO* fno, const TCHAR* path, const TCHAR* pattern);	/* Find first file */
 FRESULT f_findnext (FFDIR* dp, FILINFO* fno);							/* Find next file */
-FRESULT f_mkdir (const TCHAR* path);								/* Create a sub directory */
-FRESULT f_unlink (const TCHAR* path);								/* Delete an existing file or directory */
-FRESULT f_rename (const TCHAR* path_old, const TCHAR* path_new);	/* Rename/Move a file or directory */
-FRESULT f_stat (const TCHAR* path, FILINFO* fno);					/* Get file status */
-FRESULT f_chmod (const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
-FRESULT f_utime (const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
-FRESULT f_chdir (const TCHAR* path);								/* Change current directory */
-FRESULT f_chdrive (const TCHAR* path);								/* Change current drive */
+FRESULT f_mkdir (FATFS* fs, const TCHAR* path);						/* Create a sub directory */
+FRESULT f_unlink (FATFS* fs, const TCHAR* path);					/* Delete an existing file or directory */
+FRESULT f_rename (FATFS* fs, const TCHAR* path_old, const TCHAR* path_new);	/* Rename/Move a file or directory */
+FRESULT f_stat (FATFS* fs, const TCHAR* path, FILINFO* fno);		/* Get file status */
+FRESULT f_chmod (FATFS* fs, const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
+FRESULT f_utime (FATFS* fs, const TCHAR* path, const FILINFO* fno);			/* Change timestamp of a file/dir */
+FRESULT f_chdir (FATFS* fs, const TCHAR* path);						/* Change current directory */
 FRESULT f_getcwd (TCHAR* buff, UINT len);							/* Get current directory */
-FRESULT f_getfree (const TCHAR* path, DWORD* nclst, FATFS** fatfs);	/* Get number of free clusters on the drive */
-FRESULT f_getlabel (const TCHAR* path, TCHAR* label, DWORD* vsn);	/* Get volume label */
-FRESULT f_setlabel (const TCHAR* label);							/* Set volume label */
+FRESULT f_getfree (FATFS* fs, DWORD* nclst);						/* Get number of free clusters on the drive */
+FRESULT f_getlabel (FATFS* fs, TCHAR* label, DWORD* vsn);			/* Get volume label */
+FRESULT f_setlabel (FATFS* fs, const TCHAR* label);					/* Set volume label */
 FRESULT f_forward (FFFIL* fp, UINT(*func)(const BYTE*,UINT), UINT btf, UINT* bf);	/* Forward data to the stream */
 FRESULT f_expand (FFFIL* fp, FSIZE_t fsz, BYTE opt);					/* Allocate a contiguous block to the file */
-FRESULT f_mount (FATFS* fs, const TCHAR* path, void* pdrv, BYTE opt);			/* Mount/Unmount a logical drive */
+FRESULT f_mount (FATFS* fs, void* pdrv, UINT part);					/* Mount a logical drive */
+FRESULT f_umount (FATFS* fs);										/* Unmount a logical drive */
 FRESULT f_mkfs (const TCHAR* path, const MKFS_PARM* opt, void* work, UINT len);	/* Create a FAT volume */
 FRESULT f_fdisk (BYTE pdrv, const LBA_t ptbl[], void* work);		/* Divide a physical drive into some partitions */
 FRESULT f_setcp (WORD cp);											/* Set current code page */

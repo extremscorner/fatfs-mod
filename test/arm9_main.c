@@ -100,14 +100,14 @@ int main(int argc, char* argv[])
 
 	static FATFS fs;
 	FRESULT res;
-	res = f_mount(&fs, "0:/", NULL, 1);
+	res = f_mount(&fs, NULL, 0);
 	if (res != FR_OK) {
 		dietPrint("f_mount returned %d\n", res);
 	} else {
 		dietPrint("Mount OK\n");
 
 		FFDIR dir;
-		res = f_opendir(&dir, "0:/");
+		res = f_opendir(&dir, &fs, "/");
 		if (res == FR_OK) {
 
 			for (;;) {
