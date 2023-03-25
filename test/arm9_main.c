@@ -106,8 +106,10 @@ int main(int argc, char* argv[])
 	} else {
 		dietPrint("Mount OK\n");
 
+		f_chdir(&fs, "nds");
+
 		FFDIR dir;
-		res = f_opendir(&dir, &fs, "/");
+		res = f_opendir(&dir, &fs, ".");
 		if (res == FR_OK) {
 
 			for (;;) {
