@@ -4653,7 +4653,14 @@ FRESULT f_stat (
 		res = follow_path(&dj, path);	/* Follow the file path */
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
-				res = FR_INVALID_NAME;
+				fno->fsize = 0;
+				fno->fdate = 0;
+				fno->ftime = 0;
+				fno->fattrib = AM_DIR;
+				fno->fname[0] = 0;
+#if FF_USE_LFN
+				fno->altname[0] = 0;
+#endif
 			} else {							/* Found an object */
 				if (fno) get_fileinfo(&dj, fno);
 			}
