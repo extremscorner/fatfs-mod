@@ -2719,6 +2719,7 @@ static void get_fileinfo (
 	fno->fname[di] = 0;		/* Terminate the SFN */
 #endif
 
+	fno->cl = ld_clust(fs, dp->dir);					/* Cluster number */
 	fno->fattrib = dp->dir[DIR_Attr] & AM_MASK;			/* Attribute */
 	fno->fsize = ld_dword(dp->dir + DIR_FileSize);		/* Size */
 	fno->ftime = ld_word(dp->dir + DIR_ModTime + 0);	/* Time */
@@ -4654,6 +4655,7 @@ FRESULT f_stat (
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
 				fno->fsize = 0;
+				fno->cl = 0;
 				fno->fdate = 0;
 				fno->ftime = 0;
 				fno->fattrib = AM_DIR;
@@ -4661,6 +4663,10 @@ FRESULT f_stat (
 #if FF_USE_LFN
 				fno->altname[0] = 0;
 #endif
+
+				if (fs->fs_type >= FS_FAT32) {
+					fno->cl = fs->dirbase;
+				}
 			} else {							/* Found an object */
 				if (fno) get_fileinfo(&dj, fno);
 			}
