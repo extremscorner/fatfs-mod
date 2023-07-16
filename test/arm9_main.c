@@ -12,8 +12,8 @@ void consoleInit(void);
 void systemUserStartup(void)
 {
 	// Enable graphics
-	MEOW_REG(u32, IO_GFX_A + IO_DISPCNT) = 1U<<16;
-	MEOW_REG(u32, IO_GFX_B + IO_DISPCNT) = 1U<<16;
+	MK_REG(u32, IO_GFX_A + IO_DISPCNT) = 1U<<16;
+	MK_REG(u32, IO_GFX_B + IO_DISPCNT) = 1U<<16;
 	threadWaitForVBlank();
 }
 

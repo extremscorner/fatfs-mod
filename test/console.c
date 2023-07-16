@@ -76,8 +76,8 @@ void consoleInit(void)
 	};
 	svcBitUnpack(font_bin, (void*)MM_VRAM_BG_A, &params);
 
-	MEOW_REG(u16, IO_GFX_A + IO_BGxCNT(0)) = 0 | (0<<2) | (0<<7) | (4<<8) | (0<<14);
-	MEOW_REG(u32, IO_GFX_A + IO_DISPCNT) |= (1<<8);
+	MK_REG(u16, IO_GFX_A + IO_BGxCNT(0)) = 0 | (0<<2) | (0<<7) | (4<<8) | (0<<14);
+	MK_REG(u32, IO_GFX_A + IO_DISPCNT) |= (1<<8);
 
 	s_conTilemap = (u16*)(MM_VRAM_BG_A + 8*1024);
 
