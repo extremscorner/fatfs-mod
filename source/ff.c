@@ -4829,7 +4829,8 @@ FRESULT f_truncate (
 
 FRESULT f_unlink (
 	FATFS* fs,				/* Pointer to filesystem object */
-	const TCHAR* path		/* Pointer to the file or directory path */
+	const TCHAR* path,		/* Pointer to the file or directory path */
+	BYTE only_dir			/* 1: only delete directories, 0: delete files and directories */
 )
 {
 	FRESULT res;
@@ -4903,6 +4904,8 @@ FRESULT f_unlink (
 							if (res == FR_NO_FILE) res = FR_OK;	/* Empty? */
 						}
 					}
+				} else if (only_dir != 0) {
+					res = FR_DENIED;
 				}
 			}
 			if (res == FR_OK) {

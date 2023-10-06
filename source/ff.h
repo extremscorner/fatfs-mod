@@ -296,7 +296,7 @@ FRESULT f_readdir (FFDIR* dp, FILINFO* fno);							/* Read a directory item */
 FRESULT f_findfirst (FFDIR* dp, FILINFO* fno, const TCHAR* path, const TCHAR* pattern);	/* Find first file */
 FRESULT f_findnext (FFDIR* dp, FILINFO* fno);							/* Find next file */
 FRESULT f_mkdir (FATFS* fs, const TCHAR* path);						/* Create a sub directory */
-FRESULT f_unlink (FATFS* fs, const TCHAR* path);					/* Delete an existing file or directory */
+FRESULT f_unlink (FATFS* fs, const TCHAR* path, BYTE only_dir);		/* Delete an existing file or directory */
 FRESULT f_rename (FATFS* fs, const TCHAR* path_old, const TCHAR* path_new);	/* Rename/Move a file or directory */
 FRESULT f_stat (FATFS* fs, const TCHAR* path, FILINFO* fno);		/* Get file status */
 FRESULT f_chmod (FATFS* fs, const TCHAR* path, BYTE attr, BYTE mask);			/* Change attribute of a file/dir */
