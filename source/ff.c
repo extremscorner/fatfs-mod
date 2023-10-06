@@ -4889,8 +4889,17 @@ FRESULT f_unlink (
 #endif
 						res = dir_sdi(&sdj, 0);
 						if (res == FR_OK) {
-							res = DIR_READ_FILE(&sdj);			/* Test if the directory is empty */
-							if (res == FR_OK) res = FR_DENIED;	/* Not empty? */
+							/* Test if the directory is empty */
+							do {
+								res = DIR_READ_FILE(&sdj);
+								if (res == FR_OK) {
+									if (sdj.dir[DIR_Name] == '.') {
+										res = dir_next(&sdj, 0);		/* Skip over dot entries */
+									} else {
+										res = FR_DENIED;	/* Not empty? */
+									}
+								}
+							} while (res == FR_OK);
 							if (res == FR_NO_FILE) res = FR_OK;	/* Empty? */
 						}
 					}
