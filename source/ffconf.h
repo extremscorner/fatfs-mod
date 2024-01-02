@@ -243,3 +243,7 @@
 
 
 /*--- End of configuration options ---*/
+
+#ifdef FF_CONF_ADDENDUM
+#include FF_CONF_ADDENDUM
+#endif
