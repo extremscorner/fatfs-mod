@@ -35,15 +35,14 @@ extern "C" {
 
 /* Integer types used for FatFs API */
 
-#if defined(_WIN32)		/* Windows VC++ (for development only) */
-#define FF_INTDEF 2
-#include <windows.h>
-typedef unsigned __int64 QWORD;
-#include <float.h>
-#define isnan(v) _isnan(v)
-#define isinf(v) (!_finite(v))
+/* Differs from upstream (do not pull windows.h, require more standard-compliant versions, checking _WIN32 is not sufficient as it affects MinGW0) */
 
-#elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || defined(__cplusplus)	/* C99 or later */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || defined(__cplusplus)	/* C99 or later */
+
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#error Please use a more recent version of MSVC
+#endif
+
 #define FF_INTDEF 2
 #include <stdint.h>
 typedef unsigned int	UINT;	/* int must be 16-bit or 32-bit */
