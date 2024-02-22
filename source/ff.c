@@ -4186,29 +4186,23 @@ FRESULT f_chdir (
 
 #if FF_FS_RPATH >= 2
 FRESULT f_getcwd (
+	FATFS* fs,		/* Pointer to filesystem object */
 	TCHAR* buff,	/* Pointer to the directory path */
 	UINT len		/* Size of buff in unit of TCHAR */
 )
 {
 	FRESULT res;
 	FFDIR dj;
-	FATFS *fs;
 	UINT i, n;
 	DWORD ccl;
 	TCHAR *tp = buff;
-#if FF_VOLUMES >= 2
-	UINT vl;
-#if FF_STR_VOLUME_ID
-	const char *vp;
-#endif
-#endif
 	FILINFO fno;
 	DEF_NAMBUF
 
 
 	/* Get logical drive */
 	buff[0] = 0;	/* Set null string to get current volume */
-	res = mount_volume((const TCHAR**)&buff, &fs, 0);	/* Get current volume */
+	res = mount_volume(fs, 0, 0);	/* Get current volume */
 	if (res == FR_OK) {
 		dj.obj.fs = fs;
 		INIT_NAMBUF(fs);
@@ -4244,25 +4238,7 @@ FRESULT f_getcwd (
 		}
 		if (res == FR_OK) {
 			if (i == len) buff[--i] = '/';	/* Is it the root-directory? */
-#if FF_VOLUMES >= 2			/* Put drive prefix */
-			vl = 0;
-#if FF_STR_VOLUME_ID >= 1	/* String volume ID */
-			for (n = 0, vp = (const char*)VolumeStr[CurrVol]; vp[n]; n++) ;
-			if (i >= n + 2) {
-				if (FF_STR_VOLUME_ID == 2) *tp++ = (TCHAR)'/';
-				for (vl = 0; vl < n; *tp++ = (TCHAR)vp[vl], vl++) ;
-				if (FF_STR_VOLUME_ID == 1) *tp++ = (TCHAR)':';
-				vl++;
-			}
-#else						/* Numeric volume ID */
-			if (i >= 3) {
-				*tp++ = (TCHAR)'0' + CurrVol;
-				*tp++ = (TCHAR)':';
-				vl = 2;
-			}
-#endif
-			if (vl == 0) res = FR_NOT_ENOUGH_CORE;
-#endif
+
 			/* Add current directory path */
 			if (res == FR_OK) {
 				do {	/* Copy stacked path string */
