@@ -292,7 +292,7 @@ FRESULT f_sync (FFFIL* fp);											/* Flush cached data of the writing file *
 FRESULT f_opendir (FFDIR* dp, FATFS* fs, const TCHAR* path);		/* Open a directory */
 FRESULT f_closedir (FFDIR* dp);										/* Close an open directory */
 FRESULT f_readdir (FFDIR* dp, FILINFO* fno);							/* Read a directory item */
-FRESULT f_findfirst (FFDIR* dp, FILINFO* fno, const TCHAR* path, const TCHAR* pattern);	/* Find first file */
+FRESULT f_findfirst (FFDIR* dp, FILINFO* fno, FATFS* fs, const TCHAR* path, const TCHAR* pattern);	/* Find first file */
 FRESULT f_findnext (FFDIR* dp, FILINFO* fno);							/* Find next file */
 FRESULT f_mkdir (FATFS* fs, const TCHAR* path);						/* Create a sub directory */
 FRESULT f_unlink (FATFS* fs, const TCHAR* path, BYTE only_dir);		/* Delete an existing file or directory */
