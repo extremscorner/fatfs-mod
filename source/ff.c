@@ -2769,7 +2769,8 @@ static DWORD get_achar (	/* Get a character and advance ptr */
 }
 
 
-static int pattern_match (	/* 0:mismatched, 1:matched */
+/* Pattern matching (upstream: static function) */
+int f_pattern_match (	/* 0:mismatched, 1:matched */
 	const TCHAR* pat,	/* Matching pattern */
 	const TCHAR* nam,	/* String to be tested */
 	UINT skip,			/* Number of pre-skip chars (number of ?s, b8:infinite (* specified)) */
@@ -2801,7 +2802,7 @@ static int pattern_match (	/* 0:mismatched, 1:matched */
 						sk |= 0x100;
 					}
 				} while (*pptr == '\?' || *pptr == '*');
-				if (pattern_match(pptr, nptr, sk, recur - 1)) return 1;	/* Test new branch (recursive call) */
+				if (f_pattern_match(pptr, nptr, sk, recur - 1)) return 1;	/* Test new branch (recursive call) */
 				nchr = *nptr; break;	/* Branch mismatched */
 			}
 			pchr = get_achar(&pptr);	/* Get a pattern char */
@@ -4570,9 +4571,9 @@ FRESULT f_findnext (
 	for (;;) {
 		res = f_readdir(dp, fno);		/* Get a directory item */
 		if (res != FR_OK || !fno || !fno->fname[0]) break;	/* Terminate if any error or end of directory */
-		if (pattern_match(dp->pat, fno->fname, 0, FIND_RECURS)) break;		/* Test for the file name */
+		if (f_pattern_match(dp->pat, fno->fname, 0, FIND_RECURS)) break;		/* Test for the file name */
 #if FF_USE_LFN && FF_USE_FIND == 2
-		if (pattern_match(dp->pat, fno->altname, 0, FIND_RECURS)) break;	/* Test for alternative name if exist */
+		if (f_pattern_match(dp->pat, fno->altname, 0, FIND_RECURS)) break;	/* Test for alternative name if exist */
 #endif
 	}
 	return res;
