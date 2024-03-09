@@ -3795,6 +3795,68 @@ FRESULT f_open (
 /* Read File                                                             */
 /*-----------------------------------------------------------------------*/
 
+/* New in dkp fatfs fork */
+typedef struct {
+	BYTE *dst;
+	LBA_t startsect;
+	UINT numsect;
+} FILLAZYRDCTX;
+
+/* New in dkp fatfs fork */
+
+#if FF_EXTRA_FS_MERGE_CONTIGUOUS_CLUSTER_READS
+static DRESULT lazy_disk_read_flush(FILLAZYRDCTX *ctx, FATFS *fs)
+{
+	DRESULT res = (ctx->dst && ctx->numsect > 0) ? disk_read(fs->pdrv, ctx->dst, ctx->startsect, ctx->numsect) : RES_OK;
+	ctx->dst = NULL;
+	ctx->startsect = 0;
+	ctx->numsect = 0;
+	return res;
+}
+
+static DRESULT lazy_disk_read_flush_on_error(FRESULT err, FILLAZYRDCTX *ctx, FATFS *fs)
+{
+	DRESULT dres = lazy_disk_read_flush(ctx, fs);
+	return dres == RES_OK ? err : FR_DISK_ERR;
+}
+
+static DRESULT lazy_disk_read(FILLAZYRDCTX *ctx, FATFS *fs, BYTE *buff, LBA_t sector, UINT count)
+{
+	if (ctx->dst && ctx->numsect > 0 && sector == ctx->startsect + ctx->numsect && buff == ctx->dst + SS(fs) * ctx->numsect) {
+		/* Coalesce adjacent sector reads */
+		ctx->numsect += count;
+		return RES_OK;
+	} else {
+		/* Else, flush and update ctx */
+		DRESULT res = lazy_disk_read_flush(ctx, fs);
+		ctx->dst = buff;
+		ctx->startsect = sector;
+		ctx->numsect = count;
+		return res;
+	}
+}
+#else
+static DRESULT lazy_disk_read_flush(FILLAZYRDCTX *ctx, FATFS *fs)
+{
+	(void)ctx;
+	(void)fs;
+	return RES_OK;
+}
+
+static DRESULT lazy_disk_read_flush_on_error(FRESULT err, FILLAZYRDCTX *ctx, FATFS *fs)
+{
+	(void)ctx;
+	(void)fs;
+	return err;
+}
+
+static DRESULT lazy_disk_read(FILLAZYRDCTX *ctx, FATFS *fs, BYTE *buff, LBA_t sector, UINT count)
+{
+	(void)ctx;
+	return disk_read(fs->pdrv, buff, sector, count);
+}
+#endif
+
 FRESULT f_read (
 	FFFIL* fp, 	/* Open file to be read */
 	void* buff,	/* Data buffer to store the read data */
@@ -3809,7 +3871,7 @@ FRESULT f_read (
 	FSIZE_t remain;
 	UINT rcnt, cc, csect;
 	BYTE *rbuff = (BYTE*)buff;
-
+	FILLAZYRDCTX lazyctx = {0};
 
 	*br = 0;	/* Clear read byte counter */
 	res = validate(&fp->obj, &fs);				/* Check validity of the file object */
@@ -3834,26 +3896,28 @@ FRESULT f_read (
 						clst = get_fat(&fp->obj, fp->clust);	/* Follow cluster chain on the FAT */
 					}
 				}
-				if (clst < 2) ABORT(fs, FR_INT_ERR);
-				if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
+				if (clst < 2) ABORT(fs, lazy_disk_read_flush_on_error(FR_INT_ERR, &lazyctx, fs));
+				if (clst == 0xFFFFFFFF) ABORT(fs, lazy_disk_read_flush_on_error(FR_DISK_ERR, &lazyctx, fs));
 				fp->clust = clst;				/* Update current cluster */
 			}
 			sect = clst2sect(fs, fp->clust);	/* Get current sector */
-			if (sect == 0) ABORT(fs, FR_INT_ERR);
+			if (sect == 0) ABORT(fs, lazy_disk_read_flush_on_error(FR_INT_ERR, &lazyctx, fs));
 			sect += csect;
 			cc = btr / SS(fs);					/* When remaining bytes >= sector size, */
 			if (cc > 0) {						/* Read maximum contiguous sectors directly */
 				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
 					cc = fs->csize - csect;
 				}
-				if (disk_read(fs->pdrv, rbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
+				if (lazy_disk_read(&lazyctx, fs, rbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if !FF_FS_READONLY && FF_FS_MINIMIZE <= 2		/* Replace one of the read sectors with cached data if it contains a dirty sector */
 #if FF_FS_TINY
 				if (fs->wflag && fs->winsect - sect < cc) {
+					if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 					memcpy(rbuff + ((fs->winsect - sect) * SS(fs)), fs->win, SS(fs));
 				}
 #else
 				if ((fp->flag & FA_DIRTY) && fp->sect - sect < cc) {
+					if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 					memcpy(rbuff + ((fp->sect - sect) * SS(fs)), fp->buf, SS(fs));
 				}
 #endif
@@ -3861,6 +3925,8 @@ FRESULT f_read (
 				rcnt = SS(fs) * cc;				/* Number of bytes transferred */
 				continue;
 			}
+			/* Else (reading less than a sector at a sector-aligned position) */
+			if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if !FF_FS_TINY
 			if (fp->sect != sect) {			/* Load data sector if not in cache */
 #if !FF_FS_READONLY
@@ -3874,6 +3940,9 @@ FRESULT f_read (
 #endif
 			fp->sect = sect;
 		}
+		/* Else (reading from a non-aligned position)*/
+		if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
+
 		rcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes remains in the sector */
 		if (rcnt > btr) rcnt = btr;					/* Clip it by btr if needed */
 #if FF_FS_TINY
@@ -3884,6 +3953,7 @@ FRESULT f_read (
 #endif
 	}
 
+	if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 	LEAVE_FF(fs, FR_OK);
 }
 
@@ -3894,6 +3964,68 @@ FRESULT f_read (
 /*-----------------------------------------------------------------------*/
 /* Write File                                                            */
 /*-----------------------------------------------------------------------*/
+
+/* New in dkp fatfs fork */
+typedef struct {
+	const BYTE *src;
+	LBA_t startsect;
+	UINT numsect;
+} FILLAZYWRCTX;
+
+/* New in dkp fatfs fork */
+
+#if FF_EXTRA_FS_MERGE_CONTIGUOUS_CLUSTER_WRITES
+static DRESULT lazy_disk_write_flush(FILLAZYWRCTX *ctx, FATFS *fs)
+{
+	DRESULT res = (ctx->src && ctx->numsect > 0) ? disk_write(fs->pdrv, ctx->src, ctx->startsect, ctx->numsect) : RES_OK;
+	ctx->src = NULL;
+	ctx->startsect = 0;
+	ctx->numsect = 0;
+	return res;
+}
+
+static DRESULT lazy_disk_write_flush_on_error(FRESULT err, FILLAZYWRCTX *ctx, FATFS *fs)
+{
+	DRESULT dres = lazy_disk_write_flush(ctx, fs);
+	return dres == RES_OK ? err : FR_DISK_ERR;
+}
+
+static DRESULT lazy_disk_write(FILLAZYWRCTX *ctx, FATFS *fs, const BYTE *buff, LBA_t sector, UINT count)
+{
+	if (ctx->src && ctx->numsect > 0 && sector == ctx->startsect + ctx->numsect && buff == ctx->src + SS(fs) * ctx->numsect) {
+		/* Coalesce adjacent sector writes */
+		ctx->numsect += count;
+		return RES_OK;
+	} else {
+		/* Else, flush and update ctx */
+		DRESULT res = lazy_disk_write_flush(ctx, fs);
+		ctx->src = buff;
+		ctx->startsect = sector;
+		ctx->numsect = count;
+		return res;
+	}
+}
+#else
+static DRESULT lazy_disk_write_flush(FILLAZYWRCTX *ctx, FATFS *fs)
+{
+	(void)ctx;
+	(void)fs;
+	return RES_OK;
+}
+
+static DRESULT lazy_disk_write_flush_on_error(FRESULT err, FILLAZYWRCTX *ctx, FATFS *fs)
+{
+	(void)ctx;
+	(void)fs;
+	return err;
+}
+
+static DRESULT lazy_disk_write(FILLAZYWRCTX *ctx, FATFS *fs, const BYTE *buff, LBA_t sector, UINT count)
+{
+	(void)ctx;
+	return disk_write(fs->pdrv, buff, sector, count);
+}
+#endif
 
 FRESULT f_write (
 	FFFIL* fp,			/* Open file to be written */
@@ -3908,6 +4040,7 @@ FRESULT f_write (
 	LBA_t sect;
 	UINT wcnt, cc, csect;
 	const BYTE *wbuff = (const BYTE*)buff;
+	FILLAZYWRCTX lazyctx = {0, 0};
 
 
 	*bw = 0;	/* Clear write byte counter */
@@ -3939,29 +4072,36 @@ FRESULT f_write (
 						clst = create_chain(&fp->obj, fp->clust);	/* Follow or stretch cluster chain on the FAT */
 					}
 				}
-				if (clst == 0) break;		/* Could not allocate a new cluster (disk full) */
-				if (clst == 1) ABORT(fs, FR_INT_ERR);
-				if (clst == 0xFFFFFFFF) ABORT(fs, FR_DISK_ERR);
+				if (clst == 0) {
+					if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
+					break;	/* Could not allocate a new cluster (disk full) */
+				}
+				if (clst == 1) ABORT(fs, lazy_disk_write_flush_on_error(FR_INT_ERR, &lazyctx, fs));
+				if (clst == 0xFFFFFFFF) ABORT(fs, lazy_disk_write_flush_on_error(FR_DISK_ERR, &lazyctx, fs));
 				fp->clust = clst;			/* Update current cluster */
 				if (fp->obj.sclust == 0) fp->obj.sclust = clst;	/* Set start cluster if the first write */
 			}
 #if FF_FS_TINY
-			if (fs->winsect == fp->sect && sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Write-back sector cache */
+			if (fs->winsect == fp->sect) {
+				if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
+				if (sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Write-back sector cache */
+			}
 #else
 			if (fp->flag & FA_DIRTY) {		/* Write-back sector cache */
+				if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 				if (disk_write(fs->pdrv, fp->buf, fp->sect, 1) != RES_OK) ABORT(fs, FR_DISK_ERR);
 				fp->flag &= (BYTE)~FA_DIRTY;
 			}
 #endif
 			sect = clst2sect(fs, fp->clust);	/* Get current sector */
-			if (sect == 0) ABORT(fs, FR_INT_ERR);
+			if (sect == 0) ABORT(fs, lazy_disk_write_flush_on_error(FR_INT_ERR, &lazyctx, fs));
 			sect += csect;
 			cc = btw / SS(fs);				/* When remaining bytes >= sector size, */
 			if (cc > 0) {					/* Write maximum contiguous sectors directly */
 				if (csect + cc > fs->csize) {	/* Clip at cluster boundary */
 					cc = fs->csize - csect;
 				}
-				if (disk_write(fs->pdrv, wbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
+				if (lazy_disk_write(&lazyctx, fs, wbuff, sect, cc) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if FF_FS_MINIMIZE <= 2
 #if FF_FS_TINY
 				if (fs->winsect - sect < cc) {	/* Refill sector cache if it gets invalidated by the direct write */
@@ -3978,6 +4118,8 @@ FRESULT f_write (
 				wcnt = SS(fs) * cc;		/* Number of bytes transferred */
 				continue;
 			}
+			/* Else (writing less than a sector at a sector-aligned position) */
+			if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 #if FF_FS_TINY
 			if (fp->fptr >= fp->obj.objsize) {	/* Avoid silly cache filling on the growing edge */
 				if (sync_window(fs) != FR_OK) ABORT(fs, FR_DISK_ERR);
@@ -3992,6 +4134,8 @@ FRESULT f_write (
 #endif
 			fp->sect = sect;
 		}
+		/* Else (writing from an unaligned position) */
+		if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 		wcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes remains in the sector */
 		if (wcnt > btw) wcnt = btw;					/* Clip it by btw if needed */
 #if FF_FS_TINY
@@ -4003,6 +4147,7 @@ FRESULT f_write (
 		fp->flag |= FA_DIRTY;
 #endif
 	}
+	if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 
 	fp->flag |= FA_MODIFIED;				/* Set file change flag */
 

@@ -240,7 +240,17 @@
 /  The FF_FS_TIMEOUT defines timeout period in unit of O/S time tick.
 */
 
+/*---------------------------------------------------------------------------/
+/ Extra dkP fork features
+/---------------------------------------------------------------------------*/
 
+#define FF_EXTRA_FS_MERGE_CONTIGUOUS_CLUSTER_READS 1
+/* Whether or not to merge aligned reads from contiguous clusters within the
+/  same file read call. */
+
+#define FF_EXTRA_FS_MERGE_CONTIGUOUS_CLUSTER_WRITES 1
+/* Whether or not to merge aligned reads from contiguous clusters within the
+/  same file read call. */
 
 /*--- End of configuration options ---*/
 
