@@ -3798,6 +3798,7 @@ FRESULT f_open (
 /* New in dkp fatfs fork */
 typedef struct {
 	BYTE *dst;
+	UINT *br;
 	LBA_t startsect;
 	UINT numsect;
 } FILLAZYRDCTX;
@@ -3808,13 +3809,14 @@ typedef struct {
 static DRESULT lazy_disk_read_flush(FILLAZYRDCTX *ctx, FATFS *fs)
 {
 	DRESULT res = (ctx->dst && ctx->numsect > 0) ? disk_read(fs->pdrv, ctx->dst, ctx->startsect, ctx->numsect) : RES_OK;
+	*(ctx->br) += res == RES_OK ? SS(fs) * ctx->numsect : 0;
 	ctx->dst = NULL;
 	ctx->startsect = 0;
 	ctx->numsect = 0;
 	return res;
 }
 
-static DRESULT lazy_disk_read_flush_on_error(FRESULT err, FILLAZYRDCTX *ctx, FATFS *fs)
+static FRESULT lazy_disk_read_flush_on_error(FRESULT err, FILLAZYRDCTX *ctx, FATFS *fs)
 {
 	DRESULT dres = lazy_disk_read_flush(ctx, fs);
 	return dres == RES_OK ? err : FR_DISK_ERR;
@@ -3873,6 +3875,7 @@ FRESULT f_read (
 	BYTE *rbuff = (BYTE*)buff;
 	FILLAZYRDCTX lazyctx = {0};
 
+	lazyctx.br = br;
 	*br = 0;	/* Clear read byte counter */
 	res = validate(&fp->obj, &fs);				/* Check validity of the file object */
 	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) LEAVE_FF(fs, res);	/* Check validity */
@@ -3880,7 +3883,7 @@ FRESULT f_read (
 	remain = fp->obj.objsize - fp->fptr;
 	if (btr > remain) btr = (UINT)remain;		/* Truncate btr by remaining bytes */
 
-	for ( ; btr > 0; btr -= rcnt, *br += rcnt, rbuff += rcnt, fp->fptr += rcnt) {	/* Repeat until btr bytes read */
+	for ( ; btr > 0; btr -= rcnt, rbuff += rcnt, fp->fptr += rcnt) {	/* Repeat until btr bytes read */
 		if (fp->fptr % SS(fs) == 0) {			/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
 			if (csect == 0) {					/* On the cluster boundary? */
@@ -3951,6 +3954,7 @@ FRESULT f_read (
 #else
 		memcpy(rbuff, fp->buf + fp->fptr % SS(fs), rcnt);	/* Extract partial sector */
 #endif
+		*br += rcnt;
 	}
 
 	if (lazy_disk_read_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
@@ -3968,6 +3972,7 @@ FRESULT f_read (
 /* New in dkp fatfs fork */
 typedef struct {
 	const BYTE *src;
+	UINT *bw;
 	LBA_t startsect;
 	UINT numsect;
 } FILLAZYWRCTX;
@@ -3978,13 +3983,14 @@ typedef struct {
 static DRESULT lazy_disk_write_flush(FILLAZYWRCTX *ctx, FATFS *fs)
 {
 	DRESULT res = (ctx->src && ctx->numsect > 0) ? disk_write(fs->pdrv, ctx->src, ctx->startsect, ctx->numsect) : RES_OK;
+	*(ctx->bw) += res == RES_OK ? SS(fs) * ctx->numsect : 0;
 	ctx->src = NULL;
 	ctx->startsect = 0;
 	ctx->numsect = 0;
 	return res;
 }
 
-static DRESULT lazy_disk_write_flush_on_error(FRESULT err, FILLAZYWRCTX *ctx, FATFS *fs)
+static FRESULT lazy_disk_write_flush_on_error(FRESULT err, FILLAZYWRCTX *ctx, FATFS *fs)
 {
 	DRESULT dres = lazy_disk_write_flush(ctx, fs);
 	return dres == RES_OK ? err : FR_DISK_ERR;
@@ -4040,9 +4046,9 @@ FRESULT f_write (
 	LBA_t sect;
 	UINT wcnt, cc, csect;
 	const BYTE *wbuff = (const BYTE*)buff;
-	FILLAZYWRCTX lazyctx = {0, 0};
+	FILLAZYWRCTX lazyctx = {0};
 
-
+	lazyctx.bw = bw;
 	*bw = 0;	/* Clear write byte counter */
 	res = validate(&fp->obj, &fs);			/* Check validity of the file object */
 	if (res != FR_OK || (res = (FRESULT)fp->err) != FR_OK) LEAVE_FF(fs, res);	/* Check validity */
@@ -4053,7 +4059,7 @@ FRESULT f_write (
 		btw = (UINT)(0xFFFFFFFF - (DWORD)fp->fptr);
 	}
 
-	for ( ; btw > 0; btw -= wcnt, *bw += wcnt, wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize) {	/* Repeat until all data written */
+	for ( ; btw > 0; btw -= wcnt, wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize) {	/* Repeat until all data written */
 		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
 			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
 			if (csect == 0) {				/* On the cluster boundary? */
@@ -4146,6 +4152,7 @@ FRESULT f_write (
 		memcpy(fp->buf + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
 		fp->flag |= FA_DIRTY;
 #endif
+		*bw += wcnt;
 	}
 	if (lazy_disk_write_flush(&lazyctx, fs) != RES_OK) ABORT(fs, FR_DISK_ERR);
 
