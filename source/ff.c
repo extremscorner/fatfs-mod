@@ -902,7 +902,7 @@ static void unlock_volume (
 {
 	if (fs && res != FR_NOT_ENABLED && res != FR_INVALID_DRIVE && res != FR_TIMEOUT) {
 #if FF_FS_LOCK
-		if (SysLock == 2 && SysLockVolume == fs) {	/* Is the system locked? */
+		if (SysLock == 2 && SysLockVolume == fs) {	/* Unlock system if it has been locked by this task */
 			SysLock = 1;
 			ff_mutex_give(NULL);
 		}
@@ -2106,7 +2106,7 @@ static DWORD xsum32 (	/* Returns 32-bit checksum */
 /*------------------------------------*/
 
 static FRESULT load_xdir (	/* FR_INT_ERR: invalid entry block */
-	FFDIR* dp					/* Reading directory object pointing top of the entry block to load */
+	FFDIR* dp				/* Reading directory object pointing top of the entry block to load */
 )
 {
 	FRESULT res;
@@ -2204,7 +2204,7 @@ static FRESULT load_obj_xdir (
 /*----------------------------------------*/
 
 static FRESULT store_xdir (
-	FFDIR* dp				/* Pointer to the directory object */
+	FFDIR* dp			/* Pointer to the directory object */
 )
 {
 	FRESULT res;
@@ -2360,7 +2360,7 @@ static FRESULT dir_read (
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
-	FFDIR* dp					/* Pointer to the directory object with the file name */
+	FFDIR* dp				/* Pointer to the directory object with the file name */
 )
 {
 	FRESULT res;
@@ -2441,7 +2441,7 @@ static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_register (	/* FR_OK:succeeded, FR_DENIED:no free entry or too many SFN collision, FR_DISK_ERR:disk error */
-	FFDIR* dp						/* Target directory with object name to be created */
+	FFDIR* dp					/* Target directory with object name to be created */
 )
 {
 	FRESULT res;
@@ -2547,7 +2547,7 @@ static FRESULT dir_register (	/* FR_OK:succeeded, FR_DENIED:no free entry or too
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
-	FFDIR* dp					/* Directory object pointing the entry to be removed */
+	FFDIR* dp				/* Directory object pointing the entry to be removed */
 )
 {
 	FRESULT res;
@@ -2639,6 +2639,7 @@ static void get_fileinfo (
 		fno->fname[di] = 0;						/* Terminate the name */
 		fno->altname[0] = 0;					/* exFAT does not support SFN */
 
+		fno->fclust = ld_dword(fs->dirbuf + XDIR_FstClus);		/* Start cluster */
 		fno->fattrib = fs->dirbuf[XDIR_Attr] & AM_MASKX;		/* Attribute */
 		fno->fsize = (fno->fattrib & AM_DIR) ? 0 : ld_qword(fs->dirbuf + XDIR_FileSize);	/* Size */
 		fno->ftime = ld_word(fs->dirbuf + XDIR_ModTime + 0);	/* Time */
@@ -2719,7 +2720,7 @@ static void get_fileinfo (
 	fno->fname[di] = 0;		/* Terminate the SFN */
 #endif
 
-	fno->cl = ld_clust(fs, dp->dir);					/* Cluster number */
+	fno->fclust = ld_clust(fs, dp->dir);				/* Start cluster */
 	fno->fattrib = dp->dir[DIR_Attr] & AM_MASK;			/* Attribute */
 	fno->fsize = ld_dword(dp->dir + DIR_FileSize);		/* Size */
 	fno->ftime = ld_word(dp->dir + DIR_ModTime + 0);	/* Time */
@@ -4633,7 +4634,7 @@ FRESULT f_stat (
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
 				fno->fsize = 0;
-				fno->cl = 0;
+				fno->fclust = (fs->fs_type >= FS_FAT32) ? fs->dirbase : 0;
 				fno->fdate = 0;
 				fno->ftime = 0;
 				fno->fattrib = AM_DIR;
@@ -4641,10 +4642,6 @@ FRESULT f_stat (
 #if FF_USE_LFN
 				fno->altname[0] = 0;
 #endif
-
-				if (fs->fs_type >= FS_FAT32) {
-					fno->cl = fs->dirbase;
-				}
 			} else {							/* Found an object */
 				if (fno) get_fileinfo(&dj, fno);
 			}
