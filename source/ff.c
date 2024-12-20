@@ -4697,10 +4697,10 @@ FRESULT f_stat (
 
 
 	/* Get logical drive */
-	dj.obj.fs = fs;
-	res = mount_volume(dj.obj.fs, 0, 0);
+	res = mount_volume(fs, 0, 0);
 	if (res == FR_OK) {
-		INIT_NAMBUF(dj.obj.fs);
+		dj.obj.fs = fs;
+		INIT_NAMBUF(fs);
 		res = follow_path(&dj, path);	/* Follow the file path */
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
@@ -4720,7 +4720,7 @@ FRESULT f_stat (
 		FREE_NAMBUF();
 	}
 
-	LEAVE_FF(dj.obj.fs, res);
+	LEAVE_FF(fs, res);
 }
 
 
