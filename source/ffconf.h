@@ -2,7 +2,7 @@
 /  Configurations of FatFs Module
 /---------------------------------------------------------------------------*/
 
-#define FFCONF_DEF	5380	/* Revision ID */
+#define FFCONF_DEF	5385	/* Revision ID */
 
 /*---------------------------------------------------------------------------/
 / Function Configurations
@@ -187,9 +187,9 @@
 
 
 #define FF_FS_NORTC		0
-#define FF_NORTC_MON	11
+#define FF_NORTC_MON	6
 #define FF_NORTC_MDAY	1
-#define FF_NORTC_YEAR	2024
+#define FF_NORTC_YEAR	2025
 /* The option FF_FS_NORTC switches timestamp feature. If the system does not have
 /  an RTC or valid timestamp is not needed, set FF_FS_NORTC = 1 to disable the
 /  timestamp feature. Every object modified by FatFs will have a fixed timestamp
@@ -200,9 +200,14 @@
 /  These options have no effect in read-only configuration (FF_FS_READONLY = 1). */
 
 
+#define FF_FS_CRTIME	1
+/* This option enables(1)/disables(0) the timestamp of the file created. When
+/  set 1, the file created time is available in FILINFO structure. */
+
+
 #define FF_FS_NOFSINFO	0
-/* If you need to know correct free space on the FAT32 volume, set bit 0 of this
-/  option, and f_getfree() at the first time after volume mount will force
+/* If you need to know the correct free space on the FAT32 volume, set bit 0 of
+/  this option, and f_getfree() on the first time after volume mount will force
 /  a full FAT scan. Bit 1 controls the use of last allocated cluster number.
 /
 /  bit0=0: Use free cluster count in the FSINFO if available.
