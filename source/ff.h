@@ -222,6 +222,8 @@ typedef struct {
 typedef struct {
 	FSIZE_t	fsize;			/* File size */
 	DWORD	fclust;			/* File cluster */
+	WORD	acdate;			/* Last accessed date */
+	WORD	actime;			/* Last accessed time */
 	WORD	fdate;			/* Modified date */
 	WORD	ftime;			/* Modified time */
 #if FF_FS_CRTIME

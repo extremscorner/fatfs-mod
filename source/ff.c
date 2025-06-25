@@ -2662,6 +2662,8 @@ static void get_fileinfo (
 		fno->fclust = ld_32(fs->dirbuf + XDIR_FstClus);		/* Start cluster */
 		fno->fattrib = fs->dirbuf[XDIR_Attr] & AM_MASKX;	/* Attribute */
 		fno->fsize = (fno->fattrib & AM_DIR) ? 0 : ld_64(fs->dirbuf + XDIR_FileSize);	/* Size */
+		fno->actime = ld_16(fs->dirbuf + XDIR_AccTime + 0);	/* Last accessed time */
+		fno->acdate = ld_16(fs->dirbuf + XDIR_AccTime + 2);	/* Last accessed date */
 		fno->ftime = ld_16(fs->dirbuf + XDIR_ModTime + 0);	/* Last modified time */
 		fno->fdate = ld_16(fs->dirbuf + XDIR_ModTime + 2);	/* Last modified date */
 #if FF_FS_CRTIME
@@ -2747,8 +2749,10 @@ static void get_fileinfo (
 	fno->fclust = ld_clust(fs, dp->dir);			/* Start cluster */
 	fno->fattrib = dp->dir[DIR_Attr] & AM_MASK;		/* Attribute */
 	fno->fsize = ld_32(dp->dir + DIR_FileSize);		/* Size */
+	fno->actime = 0;								/* Last accessed time */
+	fno->acdate = ld_16(dp->dir + DIR_LstAccDate);	/* Last accessed date */
 	fno->ftime = ld_16(dp->dir + DIR_ModTime + 0);	/* Last modified time */
-	fno->fdate = ld_16(dp->dir + DIR_ModTime + 2);	/* Last Modified date */
+	fno->fdate = ld_16(dp->dir + DIR_ModTime + 2);	/* Last modified date */
 #if FF_FS_CRTIME
 	fno->crtime = ld_16(dp->dir + DIR_CrtTime + 0);	/* Created time */
 	fno->crdate = ld_16(dp->dir + DIR_CrtTime + 2);	/* Created date */
@@ -4712,6 +4716,8 @@ FRESULT f_stat (
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
 				fno->fsize = 0;
 				fno->fclust = (fs->fs_type >= FS_FAT32) ? fs->dirbase : 0;
+				fno->acdate = 0;
+				fno->actime = 0;
 				fno->fdate = 0;
 				fno->ftime = 0;
 #if FF_FS_CRTIME
@@ -5261,6 +5267,10 @@ FRESULT f_utime (
 		if (res == FR_OK) {
 #if FF_FS_EXFAT
 			if (fs->fs_type == FS_EXFAT) {	/* On the exFAT volume */
+				if (fno->acdate) {	/* Change last accessed time if needed */
+					st_32(fs->dirbuf + XDIR_AccTime, (DWORD)fno->acdate << 16 | fno->actime);
+					fs->dirbuf[XDIR_AccTZ] = 0;
+				}
 				if (fno->fdate) {	/* Change last modified time if needed */
 					st_32(fs->dirbuf + XDIR_ModTime, (DWORD)fno->fdate << 16 | fno->ftime);
 					fs->dirbuf[XDIR_ModTime10] = 0;
@@ -5277,6 +5287,9 @@ FRESULT f_utime (
 			} else
 #endif
 			{	/* On the FAT volume */
+				if (fno->acdate) {	/* Change last accessed date if needed */
+					st_16(dj.dir + DIR_LstAccDate, fno->acdate);
+				}
 				if (fno->fdate) {	/* Change last modified time if needed */
 					st_32(dj.dir + DIR_ModTime, (DWORD)fno->fdate << 16 | fno->ftime);
 				}
