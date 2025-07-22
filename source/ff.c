@@ -4802,21 +4802,24 @@ FRESULT f_stat (
 		if (res == FR_OK) {				/* Follow completed */
 			if (dj.fn[NSFLAG] & NS_NONAME) {	/* It is origin directory */
 				if (fno) {
-					fno->fsize = 0;
-					fno->fclust = (fs->fs_type >= FS_FAT32) ? fs->dirbase : 0;
-					fno->acdate = 0;
-					fno->actime = 0;
-					fno->fdate = 0;
-					fno->ftime = 0;
-#if FF_FS_CRTIME
-					fno->crdate = 0;
-					fno->crtime = 0;
-#endif
+					fno->fclust = dj.obj.sclust;
+					if (fno->fclust == 0 && fs->fs_type >= FS_FAT32) {
+						fno->fclust = (DWORD)fs->dirbase;
+					}
 					fno->fattrib = AM_DIR;
+					fno->fsize = 0;
+					fno->actime = 0;
+					fno->acdate = 0;
+					fno->ftime = 0;
+					fno->fdate = 0;
+#if FF_FS_CRTIME
+					fno->crtime = 0;
+					fno->crdate = 0;
+#endif
+					fno->fname[0] = 0;
 #if FF_USE_LFN
 					fno->altname[0] = 0;
 #endif
-					fno->fname[0] = 0;
 				}
 			} else {							/* Found an object */
 				if (fno) get_fileinfo(&dj, fno);
