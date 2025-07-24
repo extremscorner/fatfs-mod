@@ -1724,6 +1724,7 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 	if (dp->sect == 0) return FR_INT_ERR;
 	dp->sect += ofs / SS(fs);			/* Sector# of the directory entry */
 	dp->dir = fs->win + (ofs % SS(fs));	/* Pointer to the entry in the win[] */
+	dp->n_dot = 0;
 
 	return FR_OK;
 }
@@ -2344,8 +2345,11 @@ static FRESULT dir_read (
 #endif
 		{	/* On the FAT/FAT32 volume */
 			dp->obj.attr = attr = dp->dir[DIR_Attr] & AM_MASK;	/* Get attribute */
+			if (et == '.' && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {
+				dp->n_dot++;
+			}
 #if FF_USE_LFN		/* LFN configuration */
-			if (et == DDEM || /*et == '.' ||*/ (int)((attr & ~AM_ARC) == AM_VOL) != vol) {	/* An entry without valid data */
+			if (et == DDEM || (int)((attr & ~AM_ARC) == AM_VOL) != vol) {	/* An entry without valid data */
 				ord = 0xFF;
 			} else {
 				if (attr == AM_LFN) {	/* An LFN entry is found */
@@ -2364,7 +2368,7 @@ static FRESULT dir_read (
 				}
 			}
 #else		/* Non LFN configuration */
-			if (et != DDEM && /*et != '.' &&*/ attr != AM_LFN && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {	/* Is it a valid entry? */
+			if (et != DDEM && attr != AM_LFN && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {	/* Is it a valid entry? */
 				break;
 			}
 #endif
@@ -4696,6 +4700,9 @@ FRESULT f_readdir (
 {
 	FRESULT res;
 	FATFS *fs;
+#if FF_FS_EXFAT && FF_FS_RPATH
+	UINT di;
+#endif
 	DEF_NAMEBUFF
 
 
@@ -4704,6 +4711,28 @@ FRESULT f_readdir (
 		if (!fno) {
 			res = dir_sdi(dp, 0);		/* Rewind the directory object */
 		} else {
+#if FF_FS_EXFAT && FF_FS_RPATH
+			if (fs->fs_type == FS_EXFAT && dp->obj.sclust != 0 && dp->n_dot < 2) {
+				fno->fclust = (dp->n_dot < 1) ? dp->obj.sclust : dp->obj.c_scl; dp->n_dot++;
+				fno->fattrib = AM_DIR;
+				fno->fsize = 0;
+				fno->actime = 0;
+				fno->acdate = 0;
+				fno->ftime = 0;
+				fno->fdate = 0;
+#if FF_FS_CRTIME
+				fno->crtime = 0;
+				fno->crdate = 0;
+#endif
+				for (di = 0; di < dp->n_dot; di++) {
+					fno->fname[di] = '.';
+				}
+				fno->fname[di] = 0;
+				fno->altname[0] = 0;
+
+				LEAVE_FF(fs, res);
+			}
+#endif
 			INIT_NAMEBUFF(fs);
 			fno->fname[0] = 0;				/* Clear file information */
 			res = DIR_READ_FILE(dp);		/* Read an item */

@@ -232,6 +232,7 @@ typedef struct {
 #if FF_USE_FIND
 	const TCHAR *pat;	/* Pointer to the name matching pattern */
 #endif
+	UINT	n_dot;		/* Number of dot entries */
 } FFDIR;
 
 
