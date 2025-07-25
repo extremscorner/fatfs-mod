@@ -2345,9 +2345,6 @@ static FRESULT dir_read (
 #endif
 		{	/* On the FAT/FAT32 volume */
 			dp->obj.attr = attr = dp->dir[DIR_Attr] & AM_MASK;	/* Get attribute */
-			if (et == '.' && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {
-				dp->n_dot++;
-			}
 #if FF_USE_LFN		/* LFN configuration */
 			if (et == DDEM || (int)((attr & ~AM_ARC) == AM_VOL) != vol) {	/* An entry without valid data */
 				ord = 0xFF;
@@ -2361,6 +2358,9 @@ static FRESULT dir_read (
 					/* Check LFN validity and capture it */
 					ord = (et == ord && sum == dp->dir[LDIR_Chksum] && pick_lfn(fs->lfnbuf, dp->dir)) ? ord - 1 : 0xFF;
 				} else {				/* An SFN entry is found */
+					if (et == '.') {	/* Is this a dot entry? */
+						dp->n_dot++;
+					}
 					if (ord != 0 || sum != sum_sfn(dp->dir)) {	/* Is there a valid LFN? */
 						dp->blk_ofs = 0xFFFFFFFF;	/* It has no LFN. */
 					}
@@ -2369,6 +2369,9 @@ static FRESULT dir_read (
 			}
 #else		/* Non LFN configuration */
 			if (et != DDEM && attr != AM_LFN && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {	/* Is it a valid entry? */
+				if (et == '.') {	/* Is this a dot entry? */
+					dp->n_dot++;
+				}
 				break;
 			}
 #endif
@@ -3149,7 +3152,7 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 						dp->obj.c_ofs = fs->xcwds2.tbl[fs->xcwds2.depth - 1].nxt_ofs;
 					}
 				}
-				dp->obj.attr |= AM_DIR;			/* This is a directory */
+				dp->obj.attr = AM_DIR;			/* This is a directory */
 				dp->fn[NSFLAG] |= NS_NONAME;	/* but dot names in exFAT volume are not directory entry */
 				if (ns & NS_LAST) break;		/* Last segment? */
 				continue;		/* Follow next segment */
@@ -3160,7 +3163,7 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 				if (res == FR_NO_FILE) {	/* Object is not found */
 					if (FF_FS_RPATH && (ns & NS_DOT)) {	/* If dot entry is not exist, stay there (may be root dir in FAT volume) */
 						if (!(ns & NS_LAST)) continue;	/* Continue to follow if not last segment */
-						dp->fn[NSFLAG] = NS_NONAME;
+						dp->fn[NSFLAG] |= NS_NONAME;
 						res = FR_OK;
 					} else {							/* Could not find the object */
 						if (!(ns & NS_LAST)) res = FR_NO_PATH;	/* Adjust error code if not last segment */
@@ -5073,16 +5076,21 @@ FRESULT f_unlink (
 					res = dir_sdi(&sdj, 0);
 					if (res == FR_OK) {
 						/* Check if the sub-directory is empty */
-						do {
+						if (FF_FS_EXFAT && fs->fs_type == FS_EXFAT) {
 							res = DIR_READ_FILE(&sdj);
-							if (res == FR_OK) {
-								if (sdj.dir[DIR_Name] == '.') {
-									res = dir_next(&sdj, 0);		/* Skip over dot entries */
-								} else {
-									res = FR_DENIED;	/* Not empty? */
+							if (res == FR_OK) res = FR_DENIED;
+						} else {
+							do {
+								res = DIR_READ_FILE(&sdj);
+								if (res == FR_OK) {
+									if (sdj.dir[DIR_Name] == '.') {
+										res = dir_next(&sdj, 0);	/* Skip over dot entries */
+									} else {
+										res = FR_DENIED;	/* Not empty? */
+									}
 								}
-							}
-						} while (res == FR_OK);
+							} while (res == FR_OK);
+						}
 						if (res == FR_NO_FILE) res = FR_OK;	/* Empty? */
 					}
 				}
