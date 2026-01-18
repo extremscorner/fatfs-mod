@@ -3359,6 +3359,7 @@ static UINT find_volume (	/* Returns BS status found in the hosting drive */
 		return 3;	/* Not found */
 	}
 #endif
+	if (part > 4) return 3;			/* MBR has four primary partitions max (FatFs does not support logical partition) */
 	for (i = 0; i < 4; i++) {		/* Load partition offset in the MBR */
 		mbr_pt[i] = ld_32(fs->win + MBR_Table + i * SZ_PTE + PTE_StLba);
 	}
@@ -5852,7 +5853,7 @@ FRESULT f_forward (
 /* Create partitions on the physical drive in format of MBR or GPT */
 
 static FRESULT create_partition (
-	BYTE drv,			/* Physical drive number */
+	void *drv,			/* Physical drive object */
 	const LBA_t plst[],	/* Partition list */
 	BYTE sys,			/* System ID for each partition (for only MBR) */
 	BYTE *buf			/* Working buffer for a sector */
@@ -5995,7 +5996,8 @@ static FRESULT create_partition (
 
 
 FRESULT f_mkfs (
-	const TCHAR* path,		/* Logical drive number */
+	void* pdrv,				/* Physical drive object */
+	UINT ipart,				/* Partition number */
 	const MKFS_PARM* opt,	/* Format options */
 	void* work,				/* Pointer to working buffer (null: use len bytes of heap memory) */
 	UINT len				/* Size of working buffer [byte] */
@@ -6004,7 +6006,7 @@ FRESULT f_mkfs (
 	static const WORD cst[] = {1, 4, 16, 64, 256, 512, 0};	/* Cluster size boundary for FAT volume (4K sector unit) */
 	static const WORD cst32[] = {1, 2, 4, 8, 16, 32, 0};	/* Cluster size boundary for FAT32 volume (128K sector unit) */
 	static const MKFS_PARM defopt = {FM_ANY, 0, 0, 0, 0};	/* Default parameter */
-	BYTE fsopt, fsty, sys, pdrv, ipart;
+	BYTE fsopt, fsty, sys;
 	BYTE *buf;
 	BYTE *pte;
 	WORD ss;	/* Sector size */
@@ -6013,17 +6015,9 @@ FRESULT f_mkfs (
 	LBA_t sect, lba[2];
 	DWORD sz_rsv, sz_fat, sz_dir, sz_au;	/* Size of reserved area, FAT area, directry area, data area and cluster */
 	UINT n_fat, n_root, i;					/* Number of FATs, number of roor directory entries and some index */
-	int vol;
 	DSTATUS ds;
 	FRESULT res;
 
-
-	/* Check mounted drive and clear work area */
-	vol = get_ldnumber(&path);					/* Get logical drive number to be formatted */
-	if (vol < 0) return FR_INVALID_DRIVE;
-	if (FatFs[vol]) FatFs[vol]->fs_type = 0;	/* Clear the fs object if mounted */
-	pdrv = LD2PD(vol);		/* Hosting physical drive */
-	ipart = LD2PT(vol);		/* Hosting partition (0:create as new, 1..:existing partition) */
 
 	/* Initialize the hosting physical drive */
 	ds = disk_initialize(pdrv);
@@ -6060,7 +6054,7 @@ FRESULT f_mkfs (
 
 	/* Determine where the volume to be located (b_vol, sz_vol) */
 	b_vol = sz_vol = 0;
-	if (FF_MULTI_PARTITION && ipart != 0) {	/* Is the volume associated with any specific partition? */
+	if (ipart != 0) {	/* Is the volume associated with any specific partition? */
 		/* Get partition location from the existing partition table */
 		if (disk_read(pdrv, buf, 0, 1) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);	/* Load MBR */
 		if (ld_16(buf + BS_55AA) != 0xAA55) LEAVE_MKFS(FR_MKFS_ABORTED);	/* Check if MBR is valid */
@@ -6472,7 +6466,7 @@ FRESULT f_mkfs (
 	}
 
 	/* Update partition information */
-	if (FF_MULTI_PARTITION && ipart != 0) {	/* Volume is in the existing partition */
+	if (ipart != 0) {						/* Volume is in the existing partition */
 		if (!FF_LBA64 || !(fsopt & 0x80)) {	/* Is the partition in MBR? */
 			/* Update system ID in the partition table */
 			if (disk_read(pdrv, buf, 0, 1) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);	/* Read the MBR */
@@ -6495,13 +6489,12 @@ FRESULT f_mkfs (
 
 
 
-#if FF_MULTI_PARTITION
 /*-----------------------------------------------------------------------*/
 /* API: Create Partition Table on the Physical Drive                     */
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_fdisk (
-	BYTE pdrv,			/* Physical drive number */
+	void* pdrv,			/* Physical drive object */
 	const LBA_t ptbl[],	/* Pointer to the size table for each partitions */
 	void* work			/* Pointer to the working buffer (null: use heap memory) */
 )
@@ -6526,7 +6519,6 @@ FRESULT f_fdisk (
 	LEAVE_MKFS(res);
 }
 
-#endif /* FF_MULTI_PARTITION */
 #endif /* !FF_FS_READONLY && FF_USE_MKFS */
 
 
