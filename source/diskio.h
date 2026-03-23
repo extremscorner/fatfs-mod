@@ -29,8 +29,8 @@ typedef enum {
 
 DSTATUS disk_initialize (void* pdrv);
 DSTATUS disk_status (void* pdrv);
-DRESULT disk_read (void* pdrv, BYTE* buff, LBA_t sector, UINT count);
-DRESULT disk_write (void* pdrv, const BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_read (void* pdrv, BYTE* buff, LBA_t sector, UINT count, BYTE opt);
+DRESULT disk_write (void* pdrv, const BYTE* buff, LBA_t sector, UINT count, BYTE opt);
 DRESULT disk_ioctl (void* pdrv, BYTE cmd, void* buff);
 
 

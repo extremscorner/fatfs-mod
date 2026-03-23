@@ -80,7 +80,7 @@ DSTATUS disk_status(void* pdrv)
 #define DISK_BUF_NUM_SECTORS 16
 alignas(ARM_CACHE_LINE_SZ) static u8 s_diskBuf[DISK_BUF_NUM_SECTORS*512];
 
-DRESULT disk_read(void* pdrv, BYTE* buff, LBA_t sector, UINT count)
+DRESULT disk_read(void* pdrv, BYTE* buff, LBA_t sector, UINT count, BYTE opt)
 {
 	dietPrint("RD %p 0x%lx %u\n", buff, sector, count);
 
@@ -107,7 +107,7 @@ DRESULT disk_read(void* pdrv, BYTE* buff, LBA_t sector, UINT count)
 	return RES_OK;
 }
 
-DRESULT disk_write(void* pdrv, const BYTE* buff, LBA_t sector, UINT count)
+DRESULT disk_write(void* pdrv, const BYTE* buff, LBA_t sector, UINT count, BYTE opt)
 {
 	dietPrint("WR %p 0x%lx %u\n", buff, sector, count);
 

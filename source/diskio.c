@@ -104,7 +104,8 @@ DRESULT disk_read (
 	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
 	BYTE *buff,		/* Data buffer to store read data */
 	LBA_t sector,	/* Start sector in LBA */
-	UINT count		/* Number of sectors to read */
+	UINT count,		/* Number of sectors to read */
+	BYTE opt		/* Operation mode 0:Multi-sector or 1:Single-sector */
 )
 {
 	DRESULT res;
@@ -154,7 +155,8 @@ DRESULT disk_write (
 	BYTE pdrv,			/* Physical drive nmuber to identify the drive */
 	const BYTE *buff,	/* Data to be written */
 	LBA_t sector,		/* Start sector in LBA */
-	UINT count			/* Number of sectors to write */
+	UINT count,			/* Number of sectors to write */
+	BYTE opt			/* Operation mode 0:Multi-sector or 1:Single-sector */
 )
 {
 	DRESULT res;
